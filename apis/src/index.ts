@@ -19,7 +19,7 @@ app.get("/*", async (c) => {
       .limit(5);
 
     return Response.json({
-      result: result,
+      results: result,
     });
   } catch (e) {
     console.error("Database operation failed:", e);
