@@ -10,4 +10,5 @@ export const poolCreated = table("pool_created", {
   token0: db.address('token0'),
   token1: db.address('token1'),
   fee: db.uint24('fee'),
+  blockNumber: db.uint64('block_number'),
 })
