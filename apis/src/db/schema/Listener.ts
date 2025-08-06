@@ -12,3 +12,9 @@ export const poolCreated = table("pool_created", {
   fee: db.uint24('fee'),
   blockNumber: db.uint64('block_number'),
 })
+
+export const slotRead = table("slot_read", {
+  pool: db.address('pool'),
+  fee: db.int24('tick'),
+  feeProtocol: db.uint8('fee_protocol'),
+})

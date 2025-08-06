@@ -11,7 +11,7 @@ contract UniswapV3FactoryListener is UniswapV3Factory$OnCreatePoolFunction {
     event PoolCreated(uint64 chainId, address caller, address pool, address token0, address token1, uint24 fee, uint256  blockNumber);
     
     // For now let's test sqrtPriceX96 from uniswap v3
-    event Slot0V3Read(
+    event SlotRead(
         address pool,
         uint160 sqrtPriceX96,
         int24 tick,
@@ -59,7 +59,7 @@ contract UniswapV3FactoryListener is UniswapV3Factory$OnCreatePoolFunction {
             bool   unlocked
         ) = abi.decode(slot0Data, (uint160,int24,uint16,uint16,uint16,uint8,bool));
 
-        emit Slot0V3Read(
+        emit SlotRead(
             outputs.pool,
             sqrtPriceX96,
             tick,
