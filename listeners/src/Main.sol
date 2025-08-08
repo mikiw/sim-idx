@@ -3,14 +3,14 @@ pragma solidity ^0.8.13;
 
 import "sim-idx-sol/Simidx.sol";
 import "sim-idx-generated/Generated.sol";
-import "./UniswapV3FactoryListener.sol";
+import "./UniswapV4SwapListener.sol";
 
 contract Triggers is BaseTriggers {
     function triggers() external virtual override {
-        UniswapV3FactoryListener listener = new UniswapV3FactoryListener();
+        UniswapV4SwapListener listener = new UniswapV4SwapListener();
         addTrigger(
-            chainContract(Chains.Base, 0x33128a8fC17869897dcE68Ed026d694621f6FDfD),
-            listener.triggerOnCreatePoolFunction()
+            chainContract(Chains.Base, 0x498581ff718922c3f8e6a244956af099b2652b2b),
+            listener.triggerOnSwapEvent()
         );
     }
 }
