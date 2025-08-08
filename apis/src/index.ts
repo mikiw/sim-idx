@@ -15,6 +15,23 @@ app.get("/*", async (c) => {
       .client(c)
       .select()
       .from(swapExecuted)
+      .limit(10);
+
+    return Response.json({
+      result: result,
+    });
+  } catch (e) {
+    console.error("Database operation failed:", e);
+    return Response.json({ error: (e as Error).message }, { status: 500 });
+  }
+});
+
+app.get("/filtered", async (c) => {
+  try {
+    const result = await db
+      .client(c)
+      .select()
+      .from(swapExecuted)
       .where(eq(swapExecuted.id, poolId))
       .limit(10);
 
