@@ -25,5 +25,7 @@ contract UniswapV4SwapListener is UniswapV4PoolManager$OnSwapEvent {
         );
 
         // TODO: Check if pool was created by our factory
+        // TODO: Get token address from pool
+        // TODO: check if contract was created by 0x49c9677d55c3d48f5e86efa3600154440c15f6c8
     }
 }
