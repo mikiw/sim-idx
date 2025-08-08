@@ -3,18 +3,13 @@ import { pgEnum, pgTable as table } from "drizzle-orm/pg-core";
 import * as t from "drizzle-orm/pg-core";
 import { db, types } from "@duneanalytics/sim-idx";
 
-export const poolCreated = table("pool_created", {
-  chainId: db.uint64('chain_id'),
-  caller: db.address('caller'),
-  pool: db.address('pool'),
-  token0: db.address('token0'),
-  token1: db.address('token1'),
+export const swapExecuted = table("swap_executed", {
+  id: db.bytes32('id'),
+  sender: db.address('sender'),
+  amount0: db.int128('amount0'),
+  amount1: db.int128('amount1'),
+  sqrtPriceX96: db.uint160('sqrtPriceX96'),
+  liquidity: db.uint128('liquidity'),
+  tick: db.int24('tick'),
   fee: db.uint24('fee'),
-  blockNumber: db.uint64('block_number'),
-})
-
-export const slotRead = table("slot_read", {
-  pool: db.address('pool'),
-  fee: db.int24('tick'),
-  feeProtocol: db.uint8('fee_protocol'),
 })

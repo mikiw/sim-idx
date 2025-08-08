@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { poolCreated, slotRead } from "./db/schema/Listener"; // Adjust the import path as necessary
+import { swapExecuted } from "./db/schema/Listener"; // Adjust the import path as necessary
 import { types, db, App, middlewares } from "@duneanalytics/sim-idx"; // Import schema to ensure it's registered
 
 const filterToken0 = types.Address.from(
@@ -11,22 +11,14 @@ app.use("*", middlewares.authentication);
 
 app.get("/*", async (c) => {
   try {
-    const result1 = await db
+    const result = await db
       .client(c)
       .select()
-      .from(poolCreated)
-      .where(eq(poolCreated.token0, filterToken0))
-      .limit(5);
-    
-    const result2 = await db
-      .client(c)
-      .select()
-      .from(slotRead)
+      .from(swapExecuted)
       .limit(5);
 
     return Response.json({
-      results1: result1,
-      results2: result2,
+      result: result,
     });
   } catch (e) {
     console.error("Database operation failed:", e);
