@@ -2,8 +2,9 @@ import { eq } from "drizzle-orm";
 import { swapExecuted } from "./db/schema/Listener"; // Adjust the import path as necessary
 import { types, db, App, middlewares } from "@duneanalytics/sim-idx"; // Import schema to ensure it's registered
 
-const filterToken0 = types.Address.from(
-  "7fc66500c84a76ad7e9c93437bfc5ac33e2ddae9"
+// ETH10/WETH pool on BASE
+const poolAddress = types.Address.from(
+  "0xea41bec5d27a25a772fb0162782b8365d42990e477910490b8a10a5a56280200"
 );
 
 const app = App.create();
@@ -15,7 +16,8 @@ app.get("/*", async (c) => {
       .client(c)
       .select()
       .from(swapExecuted)
-      .limit(5);
+      .where(eq(swapExecuted.id, poolAddress))
+      .limit(10);
 
     return Response.json({
       result: result,

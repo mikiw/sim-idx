@@ -23,5 +23,7 @@ contract UniswapV4SwapListener is UniswapV4PoolManager$OnSwapEvent {
         emit SwapExecuted(
             inputs.id, inputs.sender, inputs.amount0, inputs.amount1, inputs.sqrtPriceX96, inputs.liquidity, inputs.tick, inputs.fee
         );
+
+        // TODO: Check if pool was created by our factory
     }
 }
