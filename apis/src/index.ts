@@ -9,7 +9,7 @@ const poolId = types.Bytes.from(poolIdHex);
 const app = App.create();
 app.use("*", middlewares.authentication);
 
-app.get("/*", async (c) => {
+app.get("/", async (c) => {
   try {
     const result = await db
       .client(c)
