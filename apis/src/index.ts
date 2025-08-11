@@ -15,7 +15,7 @@ app.get("/", async (c) => {
       .client(c)
       .select()
       .from(swapExecuted)
-      .limit(10);
+      .limit(20);
 
     return Response.json({
       result: result,
@@ -33,7 +33,7 @@ app.get("/filtered", async (c) => {
       .select()
       .from(swapExecuted)
       .where(eq(swapExecuted.id, poolId))
-      .limit(10);
+      .limit(20);
 
     return Response.json({
       result: result,
