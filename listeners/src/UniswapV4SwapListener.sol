@@ -8,8 +8,17 @@ interface IPoolToTokenSource {
 }
 
 contract UniswapV4SwapListener is UniswapV4PoolManager$OnSwapEvent {
+    // TODO: add price calculations
+    // TODO: What else do we need?
+    // - volumes
+    // - 24h volues
+    // - total volumes
+
     event SwapExecuted(
         bytes32 id,
+        bytes32 transactionHash,
+        uint256 blockHeight,
+        uint256 blockTimestamp,
         address sender,
         int128 amount0,
         int128 amount1,
@@ -33,6 +42,9 @@ contract UniswapV4SwapListener is UniswapV4PoolManager$OnSwapEvent {
         }
         emit SwapExecuted(
             inputs.id,
+            ctx.txn.hash(),
+            block.number,
+            block.timestamp,
             inputs.sender,
             inputs.amount0,
             inputs.amount1,

@@ -5,6 +5,9 @@ import { db, types } from "@duneanalytics/sim-idx";
 
 export const swapExecuted = table("swap_executed", {
   id: db.bytes32('id'),
+  transactionHash: db.bytes32('transactionHash'),
+  blockHeight: db.uint256('blockHeight'),
+  blockTimestamp: db.uint256('blockTimestamp'),
   sender: db.address('sender'),
   amount0: db.int128('amount0'),
   amount1: db.int128('amount1'),
