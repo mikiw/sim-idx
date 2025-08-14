@@ -1,8 +1,16 @@
 /// Test commands for `sim listeners evaluate`.
+/// Prod Contract
 /// Init events:
 ///   sim listeners evaluate --chain-id 8453 --start-block 33583935 --end-block 33583945 --listeners UniswapV4SwapListener
 /// Swap events:
 ///   sim listeners evaluate --chain-id 8453 --start-block 33929640 --end-block 33929650 --listeners UniswapV4SwapListener
+/// 
+/// Dev Contract
+/// Init events:
+///   sim listeners evaluate --chain-id 8453 --start-block 32330140 --end-block 32330150 --listeners UniswapV4SwapListener
+/// Swap events:
+///.  sim listeners evaluate --chain-id 8453 --start-block 34186991 --end-block 34186999 --listeners UniswapV4SwapListener
+
 pragma solidity ^0.8.13;
 
 
@@ -59,10 +67,11 @@ contract UniswapV4SwapListener is UniswapV4PoolManager$OnSwapEvent, UniswapV4Poo
     }
     event PoolInitialized(PoolInitializedData);
 
+    // TODO: we need to update dev env with new contract factory
     // dev 0x788DDE59966CCDe6869748D9992386d2d4cd9977
     // prod 0x49C9677d55c3D48F5e86eFA3600154440c15F6c8
     IPoolToTokenSource public constant POOL_TO_TOKEN_SOURCE =
-        IPoolToTokenSource(0x788DDE59966CCDe6869748D9992386d2d4cd9977);
+        IPoolToTokenSource(0x49C9677d55c3D48F5e86eFA3600154440c15F6c8);
 
     address public constant ETH_USD_AGGREGATOR = 0x71041dddad3595F9CEd3DcCFBe3D1F4b0a16Bb70;
     address public constant USDC_USD_AGGREGATOR = 0x7e860098F58bBFC8648a4311b374B1D669a2bc6B;
