@@ -17,7 +17,7 @@ export const swapExecuted = table("swap_executed", {
   fee: db.uint24('fee'),
 })
 
-export const poolInitialized = table("Ppool_initialized", {
+export const poolInitialized = table("pool_initialized", {
   id: db.bytes32('id'),
   transactionHash: db.bytes32('transactionHash'),
   blockHeight: db.uint256('blockHeight'),
