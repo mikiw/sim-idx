@@ -4,7 +4,7 @@ pragma solidity ^0.8.13;
 
 import "sim-idx-generated/Generated.sol";
 
-interface AggregatorV3Interface {
+interface AggregatorV4Interface {
     function decimals() external view returns (uint8);
     function latestRoundData() external view returns (
         uint80 roundId,
@@ -17,7 +17,6 @@ interface AggregatorV3Interface {
 
 interface IPoolToTokenSource {
     function poolToToken(bytes32) external view returns (address);
-    function poolToTokens(bytes32) external view returns (address token0, address token1);
 }
 
 interface IERC20Metadata {
@@ -26,7 +25,7 @@ interface IERC20Metadata {
 }
 
 contract UniswapV4SwapListener is UniswapV4PoolManager$OnSwapEvent, UniswapV4PoolManager$OnInitializeEvent {
-    // Compact swap event (Struct Flattening for Sim IDX)
+    // TODO: add sqrtPriceX96, liquidity, tick and fee
     struct SwapExecutedData {
         bytes32 id;
         bytes32 transactionHash;
@@ -41,17 +40,16 @@ contract UniswapV4SwapListener is UniswapV4PoolManager$OnSwapEvent, UniswapV4Poo
 
     struct PoolInitializedData {
         bytes32 id;
-        // bytes32 transactionHash;
-        // uint256 blockHeight;
-        // uint256 blockTimestamp;
-        // address token0;
-        // address token1;
-        // uint8 token0Decimals;
-        // uint8 token1Decimals;
-        // bytes10 token0Symbol;
-        // bytes10 token1Symbol;
+        bytes32 transactionHash;
+        uint256 blockHeight;
+        uint256 blockTimestamp;
+        address token0;
+        address token1;
+        uint8 token0Decimals;
+        uint8 token1Decimals;
+        bytes10 token0Symbol;
+        bytes10 token1Symbol;
     }
-    /// @custom:index pool_init_by_time BTREE (id, blockHeight, blockTimestamp)
     event PoolInitialized(PoolInitializedData);
 
     IPoolToTokenSource public constant POOL_TO_TOKEN_SOURCE =
@@ -70,7 +68,7 @@ contract UniswapV4SwapListener is UniswapV4PoolManager$OnSwapEvent, UniswapV4Poo
     }
 
     function _readUsdPrice1e18(address feed) internal view returns (uint256) {
-        AggregatorV3Interface agg = AggregatorV3Interface(feed);
+        AggregatorV4Interface agg = AggregatorV4Interface(feed);
         int256 answer;
         uint8 dec = 8;
         // Guard latestRoundData (can revert on some historical blocks)
@@ -130,7 +128,7 @@ contract UniswapV4SwapListener is UniswapV4PoolManager$OnSwapEvent, UniswapV4Poo
             return;
         }
 
-        uint256 priceUsd = _readUsdPrice1e18(ETH_USD_AGGREGATOR);
+        uint256 priceUsd = _readUsdPrice1e18(ETH_USD_AGGREGATOR); // TODO: add USDC_USD_AGGREGATOR later
 
         SwapExecutedData memory ev;
         ev.id = inputs.id;
@@ -147,35 +145,33 @@ contract UniswapV4SwapListener is UniswapV4PoolManager$OnSwapEvent, UniswapV4Poo
     function onInitializeEvent(
         EventContext memory ctx,
         UniswapV4PoolManager$InitializeEventParams memory inputs
-    ) external override {
+    ) external override
+    {
         if (!_isTrackedPool(inputs.id)) { return; }
 
-        // address token0Addr;
-        // address token1Addr;
-        // try POOL_TO_TOKEN_SOURCE.poolToTokens(inputs.id) returns (address t0, address t1) {
-        //     token0Addr = t0;
-        //     token1Addr = t1;
-        // } catch {
-        //     return;
-        // }
-        // if (token0Addr == address(0) || token1Addr == address(0)) {
-        //     return;
-        // }
+        address token0Addr;
+        try POOL_TO_TOKEN_SOURCE.poolToToken(inputs.id) returns (address t0) {
+            token0Addr = t0;
+        } catch {
+            return;
+        }
+        if (token0Addr == address(0)) {
+            return;
+        }
 
-        // (uint8 d0, string memory s0) = _readTokenMeta(token0Addr);
-        // (uint8 d1, string memory s1) = _readTokenMeta(token1Addr);
+        (uint8 d0, string memory s0) = _readTokenMeta(token0Addr);
 
         PoolInitializedData memory ev;
         ev.id = inputs.id;
-        // ev.blockHeight = block.number;
-        // ev.blockTimestamp = block.timestamp;
-        // ev.token0 = token0Addr;
-        // ev.token1 = token1Addr;
-        // ev.token0Decimals = d0;
-        // ev.token1Decimals = d1;
-        // ev.token0Symbol = _toBytes10(s0);
-        // ev.token1Symbol = _toBytes10(s1);
-        // ev.transactionHash = ctx.txn.hash();
+        ev.transactionHash = ctx.txn.hash();
+        ev.blockHeight = block.number;
+        ev.blockTimestamp = block.timestamp;
+        ev.token0 = token0Addr;
+        ev.token1 = address(0);
+        ev.token0Decimals = d0;
+        ev.token1Decimals = 0;
+        ev.token0Symbol = _toBytes10(s0);
+        ev.token1Symbol = bytes10(0);
         emit PoolInitialized(ev);
     }
 }
