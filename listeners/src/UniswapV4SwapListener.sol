@@ -1,4 +1,8 @@
-// SPDX-License-Identifier: UNLICENSED
+/// Test commands for `sim listeners evaluate`.
+/// Init events:
+///   sim listeners evaluate --chain-id 8453 --start-block 33583935 --end-block 33583945 --listeners UniswapV4SwapListener
+/// Swap events:
+///   sim listeners evaluate --chain-id 8453 --start-block 33929640 --end-block 33929650 --listeners UniswapV4SwapListener
 pragma solidity ^0.8.13;
 
 
@@ -25,7 +29,6 @@ interface IERC20Metadata {
 }
 
 contract UniswapV4SwapListener is UniswapV4PoolManager$OnSwapEvent, UniswapV4PoolManager$OnInitializeEvent {
-    // TODO: add sqrtPriceX96, liquidity, tick and fee
     struct SwapExecutedData {
         bytes32 id;
         bytes32 transactionHash;
@@ -35,6 +38,10 @@ contract UniswapV4SwapListener is UniswapV4PoolManager$OnSwapEvent, UniswapV4Poo
         int128 amount0;
         int128 amount1;
         uint256 price;
+        uint160 sqrtPriceX96;
+        uint128 liquidity;
+        int24 tick;
+        uint24 fee;
     }
     event SwapExecuted(SwapExecutedData);
 
@@ -128,7 +135,8 @@ contract UniswapV4SwapListener is UniswapV4PoolManager$OnSwapEvent, UniswapV4Poo
             return;
         }
 
-        uint256 priceUsd = _readUsdPrice1e18(ETH_USD_AGGREGATOR); // TODO: add USDC_USD_AGGREGATOR later
+        // TODO: add USDC_USD_AGGREGATOR later
+        uint256 priceUsd = _readUsdPrice1e18(ETH_USD_AGGREGATOR);
 
         SwapExecutedData memory ev;
         ev.id = inputs.id;
@@ -139,6 +147,10 @@ contract UniswapV4SwapListener is UniswapV4PoolManager$OnSwapEvent, UniswapV4Poo
         ev.amount0 = inputs.amount0;
         ev.amount1 = inputs.amount1;
         ev.price = priceUsd;
+        ev.sqrtPriceX96 = inputs.sqrtPriceX96;
+        ev.liquidity = inputs.liquidity;
+        ev.tick = inputs.tick;
+        ev.fee = inputs.fee;
         emit SwapExecuted(ev);
     }
 
@@ -149,17 +161,11 @@ contract UniswapV4SwapListener is UniswapV4PoolManager$OnSwapEvent, UniswapV4Poo
     {
         if (!_isTrackedPool(inputs.id)) { return; }
 
-        address token0Addr;
-        try POOL_TO_TOKEN_SOURCE.poolToToken(inputs.id) returns (address t0) {
-            token0Addr = t0;
-        } catch {
-            return;
-        }
-        if (token0Addr == address(0)) {
-            return;
-        }
+        address token0Addr = inputs.currency0;
+        address token1Addr = inputs.currency1;
 
         (uint8 d0, string memory s0) = _readTokenMeta(token0Addr);
+        (uint8 d1, string memory s1) = _readTokenMeta(token1Addr);
 
         PoolInitializedData memory ev;
         ev.id = inputs.id;
@@ -167,11 +173,11 @@ contract UniswapV4SwapListener is UniswapV4PoolManager$OnSwapEvent, UniswapV4Poo
         ev.blockHeight = block.number;
         ev.blockTimestamp = block.timestamp;
         ev.token0 = token0Addr;
-        ev.token1 = address(0);
+        ev.token1 = token1Addr;
         ev.token0Decimals = d0;
-        ev.token1Decimals = 0;
+        ev.token1Decimals = d1;
         ev.token0Symbol = _toBytes10(s0);
-        ev.token1Symbol = bytes10(0);
+        ev.token1Symbol = _toBytes10(s1);
         emit PoolInitialized(ev);
     }
 }
