@@ -17,15 +17,16 @@ interface AggregatorV3Interface {
 
 interface IPoolToTokenSource {
     function poolToToken(bytes32) external view returns (address);
+    function poolToTokens(bytes32) external view returns (address token0, address token1);
+}
+
+interface IERC20Metadata {
+    function decimals() external view returns (uint8);
+    function symbol() external view returns (string memory);
 }
 
 contract UniswapV4SwapListener is UniswapV4PoolManager$OnSwapEvent {
-    // TODO: add token0 and token1: decimals, id/address and symbol
-    // TODO: What else do we need?
-    // - volumes
-    // - 24h volues
-    // - total volumes
-
+    // For now I removed liquidity, tick and sqrtPriceX96 to avoid struct flattening on sim idx
     event SwapExecuted(
         bytes32 id,
         bytes32 transactionHash,
@@ -34,10 +35,12 @@ contract UniswapV4SwapListener is UniswapV4PoolManager$OnSwapEvent {
         address sender,
         int128 amount0,
         int128 amount1,
-        uint160 sqrtPriceX96,
-        uint128 liquidity,
-        int24 tick,
-        uint24 fee,
+        address token0,
+        address token1,
+        uint8 token0Decimals,
+        uint8 token1Decimals,
+        string token0Symbol,
+        string token1Symbol,
         uint256 price
     );
 
@@ -64,6 +67,38 @@ contract UniswapV4SwapListener is UniswapV4PoolManager$OnSwapEvent {
         return _normalizeTo1e18(uint256(answer), dec);
     }
    
+    function _readTokenMeta(address token) internal view returns (uint8 dec, string memory sym) {
+        dec = 18;
+        sym = "TOKEN";
+        if (token == address(0)) {
+            return (dec, sym);
+        }
+        try IERC20Metadata(token).decimals() returns (uint8 d) {
+            dec = d;
+        } catch {}
+        try IERC20Metadata(token).symbol() returns (string memory s) {
+            sym = s;
+        } catch {}
+    }
+
+    function _poolToken0(bytes32 id) internal view returns (address token0) {
+        (token0, ) = POOL_TO_TOKEN_SOURCE.poolToTokens(id);
+    }
+
+    function _poolToken1(bytes32 id) internal view returns (address token1) {
+        (, token1) = POOL_TO_TOKEN_SOURCE.poolToTokens(id);
+    }
+
+    function _tokenDecimals(address token) internal view returns (uint8) {
+        (uint8 d, ) = _readTokenMeta(token);
+        return d;
+    }
+
+    function _tokenSymbol(address token) internal view returns (string memory) {
+        (, string memory s) = _readTokenMeta(token);
+        return s;
+    }
+
     function onSwapEvent(
         EventContext memory ctx,
         UniswapV4PoolManager$SwapEventParams memory inputs
@@ -73,8 +108,17 @@ contract UniswapV4SwapListener is UniswapV4PoolManager$OnSwapEvent {
             return;
         }
 
-        // Read normalized ETH/USD price (1e18) from Chainlink Base oracle
-        uint256 ethUsd = _readUsdPrice1e18(ETH_USD_AGGREGATOR);
+        // Read normalized ETH/USDC to USD price (1e18) from Chainlink Base oracle
+        // TODO: Add USDC/ETH detection logic later
+        // uint256 usdcUsd = _readUsdPrice1e18(USDC_USD_AGGREGATOR);
+        uint256 priceUsd = _readUsdPrice1e18(ETH_USD_AGGREGATOR);
+
+        address token0Addr = _poolToken0(inputs.id);
+        address token1Addr = _poolToken1(inputs.id);
+        uint8 token0Dec = _tokenDecimals(token0Addr);
+        uint8 token1Dec = _tokenDecimals(token1Addr);
+        string memory token0Sym = _tokenSymbol(token0Addr);
+        string memory token1Sym = _tokenSymbol(token1Addr);
 
         emit SwapExecuted(
             inputs.id,
@@ -84,11 +128,13 @@ contract UniswapV4SwapListener is UniswapV4PoolManager$OnSwapEvent {
             inputs.sender,
             inputs.amount0,
             inputs.amount1,
-            inputs.sqrtPriceX96,
-            inputs.liquidity,
-            inputs.tick,
-            inputs.fee,
-            ethUsd
+            token0Addr,
+            token1Addr,
+            token0Dec,
+            token1Dec,
+            token0Sym,
+            token1Sym,
+            priceUsd
         );
     }
 }
