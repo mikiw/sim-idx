@@ -12,5 +12,9 @@ contract Triggers is BaseTriggers {
             chainContract(Chains.Base, 0x498581fF718922c3f8e6A244956aF099B2652b2b),
             listener.triggerOnSwapEvent()
         );
+        addTrigger(
+            chainContract(Chains.Base, 0x498581fF718922c3f8e6A244956aF099B2652b2b),
+            listener.triggerOnInitializeEvent()
+        );
     }
 }

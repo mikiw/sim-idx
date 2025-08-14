@@ -16,3 +16,16 @@ export const swapExecuted = table("swap_executed", {
   tick: db.int24('tick'),
   fee: db.uint24('fee'),
 })
+
+export const poolInitialized = table("Ppool_initialized", {
+  id: db.bytes32('id'),
+  transactionHash: db.bytes32('transactionHash'),
+  blockHeight: db.uint256('blockHeight'),
+  blockTimestamp: db.uint256('blockTimestamp'),
+  token0: db.address('token0'),
+  token1: db.address('token1'),
+  token0Decimals: db.uint8('token0Decimals'),
+  token1Decimals: db.uint8('token1Decimals'),
+  token0Symbol: db.bytes10('token0Symbol'),
+  token1Symbol: db.bytes10('token1Symbol'),
+})
