@@ -54,8 +54,8 @@ contract UniswapV4SwapListener is UniswapV4PoolManager$OnSwapEvent, UniswapV4Poo
         address token1;
         uint8 token0Decimals;
         uint8 token1Decimals;
-        bytes10 token0Symbol;
-        bytes10 token1Symbol;
+        string token0Symbol;
+        string token1Symbol;
     }
     event PoolInitialized(PoolInitializedData);
 
@@ -106,16 +106,6 @@ contract UniswapV4SwapListener is UniswapV4PoolManager$OnSwapEvent, UniswapV4Poo
         try IERC20Metadata(token).symbol() returns (string memory s) {
             sym = s;
         } catch {}
-    }
-
-    function _toBytes10(string memory s) internal pure returns (bytes10 out) {
-        bytes memory b = bytes(s);
-        if (b.length == 0) return bytes10(0);
-        bytes32 tmp;
-        assembly {
-            tmp := mload(add(b, 32))
-        }
-        return bytes10(tmp);
     }
 
     function _isTrackedPool(bytes32 id) internal view returns (bool) {
@@ -176,8 +166,8 @@ contract UniswapV4SwapListener is UniswapV4PoolManager$OnSwapEvent, UniswapV4Poo
         ev.token1 = token1Addr;
         ev.token0Decimals = d0;
         ev.token1Decimals = d1;
-        ev.token0Symbol = _toBytes10(s0);
-        ev.token1Symbol = _toBytes10(s1);
+        ev.token0Symbol = s0;
+        ev.token1Symbol = s1;
         emit PoolInitialized(ev);
     }
 }
