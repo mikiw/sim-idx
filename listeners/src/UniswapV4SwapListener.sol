@@ -68,10 +68,10 @@ contract UniswapV4SwapListener is UniswapV4PoolManager$OnSwapEvent, UniswapV4Poo
     event PoolInitialized(PoolInitializedData);
 
     // TODO: we need to update dev env with new contract factory
-    // dev 0x788DDE59966CCDe6869748D9992386d2d4cd9977
+    // dev 0x3B9dFa40bea19f24f97d0c20fB85ea15bBE12330
     // prod 0x49C9677d55c3D48F5e86eFA3600154440c15F6c8
     IPoolToTokenSource public constant POOL_TO_TOKEN_SOURCE =
-        IPoolToTokenSource(0x49C9677d55c3D48F5e86eFA3600154440c15F6c8);
+        IPoolToTokenSource(0x3B9dFa40bea19f24f97d0c20fB85ea15bBE12330);
 
     address public constant ETH_USD_AGGREGATOR = 0x71041dddad3595F9CEd3DcCFBe3D1F4b0a16Bb70;
     address public constant USDC_USD_AGGREGATOR = 0x7e860098F58bBFC8648a4311b374B1D669a2bc6B;
