@@ -9,7 +9,7 @@
 /// Init events:
 ///   sim listeners evaluate --chain-id 8453 --start-block 32330140 --end-block 32330150 --listeners UniswapV4SwapListener
 /// Swap events:
-///.  sim listeners evaluate --chain-id 8453 --start-block 34186991 --end-block 34186999 --listeners UniswapV4SwapListener
+///.  sim listeners evaluate --chain-id 8453 --start-block 34405070 --end-block 34405080 --listeners UniswapV4SwapListener
 
 pragma solidity ^0.8.13;
 
@@ -144,7 +144,7 @@ contract UniswapV4SwapListener is UniswapV4PoolManager$OnSwapEvent, UniswapV4Poo
         ev.transactionHash = ctx.txn.hash();
         ev.blockHeight = block.number;
         ev.blockTimestamp = block.timestamp;
-        ev.sender = inputs.sender;
+        ev.sender = tx.origin;
         ev.amount0 = inputs.amount0;
         ev.amount1 = inputs.amount1;
         ev.price = priceUsd;
