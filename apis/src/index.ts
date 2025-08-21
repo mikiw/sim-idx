@@ -15,15 +15,15 @@ app.get("/", async (c) => {
         .select()
         .from(swapExecuted)
         .orderBy(desc(swapExecuted.blockHeight))
-        .limit(100),
+        .limit(5),
       client
         .select()
         .from(poolInitialized)
         .orderBy(desc(poolInitialized.blockHeight))
-        .limit(100),
+        .limit(5),
     ]);
 
-    return Response.json({ swaps, pools });
+    return Response.json({ testSwaps: swaps, testPools: pools });
   } catch (e) {
     console.error("Database operation failed:", e);
     return Response.json({ error: (e as Error).message }, { status: 500 });
@@ -37,7 +37,7 @@ app.get("/pool", async (c) => {
       .select()
       .from(poolInitialized)
       .orderBy(desc(poolInitialized.blockHeight))
-      .limit(100);
+      .limit(200);
 
     return Response.json({
       result: result,
@@ -64,24 +64,7 @@ app.get("/pool/:poolId", async (c) => {
       .client(c)
       .select()
       .from(poolInitialized)
-      .where(eq(poolInitialized.id, poolId))
-      .orderBy(desc(poolInitialized.blockHeight));
-
-    return Response.json({ result });
-  } catch (e) {
-    console.error("Database operation failed:", e);
-    return Response.json({ error: (e as Error).message }, { status: 500 });
-  }
-});
-
-app.get("/swaps", async (c) => {
-  try {
-    const result = await db
-      .client(c)
-      .select()
-      .from(swapExecuted)
-      .orderBy(desc(swapExecuted.blockHeight))
-      .limit(100);
+      .where(eq(poolInitialized.id, poolId));
 
     return Response.json({ result });
   } catch (e) {
@@ -108,7 +91,7 @@ app.get("/swaps/:poolId", async (c) => {
       .from(swapExecuted)
       .where(eq(swapExecuted.id, poolId))
       .orderBy(desc(swapExecuted.blockHeight))
-      .limit(100);
+      .limit(200);
 
     return Response.json({ result });
   } catch (e) {
