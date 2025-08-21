@@ -42,6 +42,20 @@ interface IERC20Metadata {
     function symbol() external view returns (string memory);
 }
 
+// NOTE: Listener contracts cannot persist state in this environment.
+// A mapping like `mapping(bytes32 => PoolMeta)` did not behave as expected,
+// so we resolve pool metadata on demand via the Uniswap v4 PoolManager.
+interface IUniswapV4PoolManager {
+    struct PoolKey {
+        address currency0;
+        address currency1;
+        uint24 fee;
+        int24 tickSpacing;
+        address hooks;
+    }
+    function poolKeys(bytes25 poolId) external view returns (PoolKey memory);
+}
+
 contract UniswapV4SwapListener is UniswapV4PoolManager$OnSwapEvent, UniswapV4PoolManager$OnInitializeEvent {
     struct SwapExecutedData {
         bytes32 id;
@@ -73,26 +87,19 @@ contract UniswapV4SwapListener is UniswapV4PoolManager$OnSwapEvent, UniswapV4Poo
     }
     event PoolInitialized(PoolInitializedData);
 
-    struct PoolMeta {
-        address token0;
-        address token1;
-        uint8 token0Decimals;
-        uint8 token1Decimals;
-        string token0Symbol;
-        string token1Symbol;
-    }
-    mapping(bytes32 => PoolMeta) public poolMeta;
-
     // dev 0x3B9dFa40bea19f24f97d0c20fB85ea15bBE12330
     // prod 0x49C9677d55c3D48F5e86eFA3600154440c15F6c8
     IPoolToTokenSource public constant POOL_TO_TOKEN_SOURCE =
         IPoolToTokenSource(0x3B9dFa40bea19f24f97d0c20fB85ea15bBE12330);
 
+    IUniswapV4PoolManager public constant V4_POOL_MANAGER =
+        IUniswapV4PoolManager(0x7C5f5A4bBd8fD63184577525326123B519429bDc);
+
+    address public constant BASE_USDC = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
+    address public constant PLATFORM_TOKEN = 0x0000000000000000000000000000000000000001;
     address public constant ETH_USD_AGGREGATOR = 0x71041dddad3595F9CEd3DcCFBe3D1F4b0a16Bb70;
     address public constant USDC_USD_AGGREGATOR = 0x7e860098F58bBFC8648a4311b374B1D669a2bc6B;
     address public constant PLATFORM_TOKEN_AGGREGATOR = 0x0000000000000000000000000000000000000002;
-    address public constant BASE_USDC = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
-    address public constant PLATFORM_TOKEN = 0x0000000000000000000000000000000000000001;
 
     function _normalizeTo1e18(uint256 value, uint8 inDecimals) internal pure returns (uint256) {
         if (inDecimals == 18) return value;
@@ -170,15 +177,30 @@ contract UniswapV4SwapListener is UniswapV4PoolManager$OnSwapEvent, UniswapV4Poo
             return;
         }
 
+        address token0Addr;
+        address token1Addr;
+        string memory token0Symbol;
+        string memory token1Symbol;
+
+        try V4_POOL_MANAGER.poolKeys(bytes25(inputs.id)) returns (IUniswapV4PoolManager.PoolKey memory key) {
+            token0Addr = key.currency0;
+            token1Addr = key.currency1;
+        } catch {
+            token0Addr = address(0);
+            token1Addr = address(0);
+        }
+
+        (, token0Symbol) = _readTokenMeta(token0Addr);
+        (, token1Symbol) = _readTokenMeta(token1Addr);
+
         uint256 priceUsd = 0;
-        PoolMeta storage meta = poolMeta[inputs.id];
-        if (_isETH(meta.token0, meta.token0Symbol) || _isETH(meta.token1, meta.token1Symbol)) {
+        if (_isETH(token0Addr, token0Symbol) || _isETH(token1Addr, token1Symbol)) {
             // ETH
             priceUsd = _readUsdPrice1e18(ETH_USD_AGGREGATOR);
-        } else if (_isUSDC(meta.token0, meta.token0Symbol) || _isUSDC(meta.token1, meta.token1Symbol)) {
+        } else if (_isUSDC(token0Addr, token0Symbol) || _isUSDC(token1Addr, token1Symbol)) {
             // USDC
             priceUsd = _readUsdPrice1e18(USDC_USD_AGGREGATOR);
-        } else if (_isPlatformToken(meta.token0, meta.token0Symbol) || _isPlatformToken(meta.token1, meta.token1Symbol)) {
+        } else if (_isPlatformToken(token0Addr, token0Symbol) || _isPlatformToken(token1Addr, token1Symbol)) {
             // Platform Token
             priceUsd = _readUsdPrice1e18(PLATFORM_TOKEN_AGGREGATOR);
         } else {
@@ -213,16 +235,6 @@ contract UniswapV4SwapListener is UniswapV4PoolManager$OnSwapEvent, UniswapV4Poo
 
         (uint8 d0, string memory s0) = _readTokenMeta(token0Addr);
         (uint8 d1, string memory s1) = _readTokenMeta(token1Addr);
-
-        PoolMeta memory meta = PoolMeta({
-            token0: token0Addr,
-            token1: token1Addr,
-            token0Decimals: d0,
-            token1Decimals: d1,
-            token0Symbol: s0,
-            token1Symbol: s1
-        });
-        poolMeta[inputs.id] = meta;
 
         PoolInitializedData memory ev;
         ev.id = inputs.id;
