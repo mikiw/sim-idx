@@ -6,11 +6,16 @@
 ///   sim listeners evaluate --chain-id 8453 --start-block 33929640 --end-block 33929650 --listeners UniswapV4SwapListener
 /// 
 /// Dev Contract
-/// Init events:
+/// Init events ETH:
 ///   sim listeners evaluate --chain-id 8453 --start-block 34451180 --end-block 34451190 --listeners UniswapV4SwapListener
+/// Init events USDC:
+///.  sim listeners evaluate --chain-id 8453 --start-block 34491210 --end-block 34491220 --listeners UniswapV4SwapListener
 /// Swap events ETH:
 ///.  sim listeners evaluate --chain-id 8453 --start-block 34405070 --end-block 34405080 --listeners UniswapV4SwapListener
 ///.  sim listeners evaluate --chain-id 8453 --start-block 34489250 --end-block 34489260 --listeners UniswapV4SwapListener
+/// Swap events USDC:
+///.  sim listeners evaluate --chain-id 8453 --start-block 34491320 --end-block 34491330 --listeners UniswapV4SwapListener
+
 
 pragma solidity ^0.8.13;
 
