@@ -7,9 +7,10 @@
 /// 
 /// Dev Contract
 /// Init events:
-///   sim listeners evaluate --chain-id 8453 --start-block 32330140 --end-block 32330150 --listeners UniswapV4SwapListener
-/// Swap events:
+///   sim listeners evaluate --chain-id 8453 --start-block 34451180 --end-block 34451190 --listeners UniswapV4SwapListener
+/// Swap events ETH:
 ///.  sim listeners evaluate --chain-id 8453 --start-block 34405070 --end-block 34405080 --listeners UniswapV4SwapListener
+///.  sim listeners evaluate --chain-id 8453 --start-block 34489250 --end-block 34489260 --listeners UniswapV4SwapListener
 
 pragma solidity ^0.8.13;
 
@@ -67,7 +68,16 @@ contract UniswapV4SwapListener is UniswapV4PoolManager$OnSwapEvent, UniswapV4Poo
     }
     event PoolInitialized(PoolInitializedData);
 
-    // TODO: we need to update dev env with new contract factory
+    struct PoolMeta {
+        address token0;
+        address token1;
+        uint8 token0Decimals;
+        uint8 token1Decimals;
+        string token0Symbol;
+        string token1Symbol;
+    }
+    mapping(bytes32 => PoolMeta) public poolMeta;
+
     // dev 0x3B9dFa40bea19f24f97d0c20fB85ea15bBE12330
     // prod 0x49C9677d55c3D48F5e86eFA3600154440c15F6c8
     IPoolToTokenSource public constant POOL_TO_TOKEN_SOURCE =
@@ -75,6 +85,9 @@ contract UniswapV4SwapListener is UniswapV4PoolManager$OnSwapEvent, UniswapV4Poo
 
     address public constant ETH_USD_AGGREGATOR = 0x71041dddad3595F9CEd3DcCFBe3D1F4b0a16Bb70;
     address public constant USDC_USD_AGGREGATOR = 0x7e860098F58bBFC8648a4311b374B1D669a2bc6B;
+    address public constant PLATFORM_TOKEN_AGGREGATOR = 0x0000000000000000000000000000000000000002;
+    address public constant BASE_USDC = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
+    address public constant PLATFORM_TOKEN = 0x0000000000000000000000000000000000000001;
 
     function _normalizeTo1e18(uint256 value, uint8 inDecimals) internal pure returns (uint256) {
         if (inDecimals == 18) return value;
@@ -107,7 +120,7 @@ contract UniswapV4SwapListener is UniswapV4PoolManager$OnSwapEvent, UniswapV4Poo
    
     function _readTokenMeta(address token) internal view returns (uint8 dec, string memory sym) {
         dec = 18;
-        sym = "TOKEN";
+        sym = "ETH";
         if (token == address(0)) {
             return (dec, sym);
         }
@@ -117,6 +130,22 @@ contract UniswapV4SwapListener is UniswapV4PoolManager$OnSwapEvent, UniswapV4Poo
         try IERC20Metadata(token).symbol() returns (string memory s) {
             sym = s;
         } catch {}
+    }
+
+    function _eqStr(string memory a, string memory b) internal pure returns (bool) {
+        return keccak256(bytes(a)) == keccak256(bytes(b));
+    }
+
+    function _isETH(address tokenAddr, string memory sym) internal pure returns (bool) {
+        return tokenAddr == address(0) || _eqStr(sym, "ETH");
+    }
+
+    function _isUSDC(address tokenAddr, string memory sym) internal pure returns (bool) {
+        return tokenAddr == BASE_USDC || _eqStr(sym, "USDC");
+    }
+    
+    function _isPlatformToken(address tokenAddr, string memory sym) internal pure returns (bool) {
+        return tokenAddr == PLATFORM_TOKEN || _eqStr(sym, "BLYZ");
     }
 
     function _isTrackedPool(bytes32 id) internal view returns (bool) {
@@ -136,8 +165,20 @@ contract UniswapV4SwapListener is UniswapV4PoolManager$OnSwapEvent, UniswapV4Poo
             return;
         }
 
-        // TODO: add USDC_USD_AGGREGATOR later
-        uint256 priceUsd = _readUsdPrice1e18(ETH_USD_AGGREGATOR);
+        uint256 priceUsd = 0;
+        PoolMeta storage meta = poolMeta[inputs.id];
+        if (_isETH(meta.token0, meta.token0Symbol) || _isETH(meta.token1, meta.token1Symbol)) {
+            // ETH
+            priceUsd = _readUsdPrice1e18(ETH_USD_AGGREGATOR);
+        } else if (_isUSDC(meta.token0, meta.token0Symbol) || _isUSDC(meta.token1, meta.token1Symbol)) {
+            // USDC
+            priceUsd = _readUsdPrice1e18(USDC_USD_AGGREGATOR);
+        } else if (_isPlatformToken(meta.token0, meta.token0Symbol) || _isPlatformToken(meta.token1, meta.token1Symbol)) {
+            // Platform Token
+            priceUsd = _readUsdPrice1e18(PLATFORM_TOKEN_AGGREGATOR);
+        } else {
+            priceUsd = 0;
+        }
 
         SwapExecutedData memory ev;
         ev.id = inputs.id;
@@ -167,6 +208,16 @@ contract UniswapV4SwapListener is UniswapV4PoolManager$OnSwapEvent, UniswapV4Poo
 
         (uint8 d0, string memory s0) = _readTokenMeta(token0Addr);
         (uint8 d1, string memory s1) = _readTokenMeta(token1Addr);
+
+        PoolMeta memory meta = PoolMeta({
+            token0: token0Addr,
+            token1: token1Addr,
+            token0Decimals: d0,
+            token1Decimals: d1,
+            token0Symbol: s0,
+            token1Symbol: s1
+        });
+        poolMeta[inputs.id] = meta;
 
         PoolInitializedData memory ev;
         ev.id = inputs.id;
