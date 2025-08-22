@@ -182,6 +182,8 @@ contract UniswapV4SwapListener is UniswapV4PoolManager$OnSwapEvent, UniswapV4Poo
         string memory token0Symbol;
         string memory token1Symbol;
 
+        // Consider refactoring this logic by following the approach in
+        // https://github.com/duneanalytics/sim-idx-dex-trades/blob/main/listeners/src/UniswapV4.sol
         try V4_POOL_MANAGER.poolKeys(bytes25(inputs.id)) returns (IUniswapV4PoolManager.PoolKey memory key) {
             token0Addr = key.currency0;
             token1Addr = key.currency1;
