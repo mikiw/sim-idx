@@ -46,7 +46,7 @@ app.get("/pool", async (c) => {
       .select()
       .from(poolInitialized)
       .orderBy(desc(poolInitialized.blockHeight))
-      .limit(500);
+      .limit(1000);
 
     return Response.json({
       result: result,
@@ -100,7 +100,7 @@ app.get("/swaps/:poolId", async (c) => {
       .from(swapExecuted)
       .where(eq(swapExecuted.id, poolId))
       .orderBy(desc(swapExecuted.blockHeight))
-      .limit(500);
+      .limit(1000);
 
     return Response.json({ result });
   } catch (e) {
