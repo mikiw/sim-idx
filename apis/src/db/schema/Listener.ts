@@ -3,11 +3,29 @@ import { pgEnum, pgTable as table } from "drizzle-orm/pg-core";
 import * as t from "drizzle-orm/pg-core";
 import { db, types } from "@duneanalytics/sim-idx";
 
-export const poolCreated = table("pool_created", {
-  chainId: db.uint64('chain_id'),
-  caller: db.address('caller'),
-  pool: db.address('pool'),
+export const swapExecuted = table("swap_executed", {
+  id: db.bytes32('id'),
+  transactionHash: db.bytes32('transactionHash'),
+  blockHeight: db.uint256('blockHeight'),
+  blockTimestamp: db.uint256('blockTimestamp'),
+  sender: db.address('sender'),
+  amount0: db.int128('amount0'),
+  amount1: db.int128('amount1'),
+  sqrtPriceX96: db.uint160('sqrtPriceX96'),
+  liquidity: db.uint128('liquidity'),
+  tick: db.int24('tick'),
+  fee: db.uint24('fee'),
+})
+
+export const poolInitialized = table("pool_initialized", {
+  id: db.bytes32('id'),
+  transactionHash: db.bytes32('transactionHash'),
+  blockHeight: db.uint256('blockHeight'),
+  blockTimestamp: db.uint256('blockTimestamp'),
   token0: db.address('token0'),
   token1: db.address('token1'),
-  fee: db.uint24('fee'),
+  token0Decimals: db.uint8('token0Decimals'),
+  token1Decimals: db.uint8('token1Decimals'),
+  token0Symbol: db.bytes10('token0Symbol'),
+  token1Symbol: db.bytes10('token1Symbol'),
 })

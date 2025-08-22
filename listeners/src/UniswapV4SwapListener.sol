@@ -1,0 +1,254 @@
+/// Test commands for `sim listeners evaluate`.
+/// Prod Contract
+/// Init events:
+///   sim listeners evaluate --chain-id 8453 --start-block 33583935 --end-block 33583945 --listeners UniswapV4SwapListener
+/// Swap events:
+///   sim listeners evaluate --chain-id 8453 --start-block 33929640 --end-block 33929650 --listeners UniswapV4SwapListener
+/// 
+/// Dev Contract
+/// Init events ETH:
+///   sim listeners evaluate --chain-id 8453 --start-block 34451180 --end-block 34451190 --listeners UniswapV4SwapListener
+/// Init events USDC:
+///.  sim listeners evaluate --chain-id 8453 --start-block 34491210 --end-block 34491220 --listeners UniswapV4SwapListener
+/// Swap events ETH:
+///.  sim listeners evaluate --chain-id 8453 --start-block 34405070 --end-block 34405080 --listeners UniswapV4SwapListener
+///.  sim listeners evaluate --chain-id 8453 --start-block 34489250 --end-block 34489260 --listeners UniswapV4SwapListener
+/// Swap events USDC:
+///.  sim listeners evaluate --chain-id 8453 --start-block 34491320 --end-block 34491330 --listeners UniswapV4SwapListener
+
+
+pragma solidity ^0.8.13;
+
+
+import "sim-idx-generated/Generated.sol";
+
+interface AggregatorV4Interface {
+    function decimals() external view returns (uint8);
+    function latestRoundData() external view returns (
+        uint80 roundId,
+        int256 answer,
+        uint256 startedAt,
+        uint256 updatedAt,
+        uint80 answeredInRound
+    );
+}
+
+interface IPoolToTokenSource {
+    function poolToToken(bytes32) external view returns (address);
+}
+
+interface IERC20Metadata {
+    function decimals() external view returns (uint8);
+    function symbol() external view returns (string memory);
+}
+
+// NOTE: Listener contracts cannot persist state in this environment.
+// A mapping like `mapping(bytes32 => PoolMeta)` did not behave as expected,
+// so we resolve pool metadata on demand via the Uniswap v4 PoolManager.
+interface IUniswapV4PoolManager {
+    struct PoolKey {
+        address currency0;
+        address currency1;
+        uint24 fee;
+        int24 tickSpacing;
+        address hooks;
+    }
+    function poolKeys(bytes25 poolId) external view returns (PoolKey memory);
+}
+
+contract UniswapV4SwapListener is UniswapV4PoolManager$OnSwapEvent, UniswapV4PoolManager$OnInitializeEvent {
+    struct SwapExecutedData {
+        bytes32 id;
+        bytes32 transactionHash;
+        uint256 blockHeight;
+        uint256 blockTimestamp;
+        address sender;
+        int128 amount0;
+        int128 amount1;
+        uint256 price;
+        uint160 sqrtPriceX96;
+        uint128 liquidity;
+        int24 tick;
+        uint24 fee;
+    }
+    event SwapExecuted(SwapExecutedData);
+
+    struct PoolInitializedData {
+        bytes32 id;
+        bytes32 transactionHash;
+        uint256 blockHeight;
+        uint256 blockTimestamp;
+        address token0;
+        address token1;
+        uint8 token0Decimals;
+        uint8 token1Decimals;
+        string token0Symbol;
+        string token1Symbol;
+    }
+    event PoolInitialized(PoolInitializedData);
+
+    // dev 0x3B9dFa40bea19f24f97d0c20fB85ea15bBE12330
+    // prod 0x49C9677d55c3D48F5e86eFA3600154440c15F6c8
+    IPoolToTokenSource public constant POOL_TO_TOKEN_SOURCE =
+        IPoolToTokenSource(0x3B9dFa40bea19f24f97d0c20fB85ea15bBE12330);
+
+    IUniswapV4PoolManager public constant V4_POOL_MANAGER =
+        IUniswapV4PoolManager(0x7C5f5A4bBd8fD63184577525326123B519429bDc);
+
+    address public constant BASE_USDC = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
+    address public constant PLATFORM_TOKEN = 0x0000000000000000000000000000000000000001;
+    address public constant ETH_USD_AGGREGATOR = 0x71041dddad3595F9CEd3DcCFBe3D1F4b0a16Bb70;
+    address public constant USDC_USD_AGGREGATOR = 0x7e860098F58bBFC8648a4311b374B1D669a2bc6B;
+    address public constant PLATFORM_TOKEN_AGGREGATOR = 0x0000000000000000000000000000000000000002;
+
+    function _normalizeTo1e18(uint256 value, uint8 inDecimals) internal pure returns (uint256) {
+        if (inDecimals == 18) return value;
+        if (inDecimals < 18) {
+            return value * (10 ** uint256(18 - inDecimals));
+        } else {
+            return value / (10 ** uint256(inDecimals - 18));
+        }
+    }
+
+    function _readUsdPrice1e18(address feed) internal view returns (uint256) {
+        AggregatorV4Interface agg = AggregatorV4Interface(feed);
+        int256 answer;
+        uint8 dec = 8;
+        // Guard latestRoundData (can revert on some historical blocks)
+        try agg.latestRoundData() returns (uint80, int256 a, uint256, uint256, uint80) {
+            answer = a;
+        } catch {
+            return 0;
+        }
+        // Guard decimals()
+        try agg.decimals() returns (uint8 d) {
+            dec = d;
+        } catch {}
+        if (answer <= 0) {
+            return 0;
+        }
+        return _normalizeTo1e18(uint256(answer), dec);
+    }
+   
+    function _readTokenMeta(address token) internal view returns (uint8 dec, string memory sym) {
+        dec = 18;
+        sym = "ETH";
+        if (token == address(0)) {
+            return (dec, sym);
+        }
+        try IERC20Metadata(token).decimals() returns (uint8 d) {
+            dec = d;
+        } catch {}
+        try IERC20Metadata(token).symbol() returns (string memory s) {
+            sym = s;
+        } catch {}
+    }
+
+    function _eqStr(string memory a, string memory b) internal pure returns (bool) {
+        return keccak256(bytes(a)) == keccak256(bytes(b));
+    }
+
+    function _isETH(address tokenAddr, string memory sym) internal pure returns (bool) {
+        return tokenAddr == address(0) || _eqStr(sym, "ETH");
+    }
+
+    function _isUSDC(address tokenAddr, string memory sym) internal pure returns (bool) {
+        return tokenAddr == BASE_USDC || _eqStr(sym, "USDC");
+    }
+    
+    function _isPlatformToken(address tokenAddr, string memory sym) internal pure returns (bool) {
+        return tokenAddr == PLATFORM_TOKEN || _eqStr(sym, "BLYZ");
+    }
+
+    function _isTrackedPool(bytes32 id) internal view returns (bool) {
+        try POOL_TO_TOKEN_SOURCE.poolToToken(id) returns (address a) {
+            return a != address(0);
+        } catch {
+            return false;
+        }
+    }
+
+    function onSwapEvent(
+        EventContext memory ctx,
+        UniswapV4PoolManager$SwapEventParams memory inputs
+    ) external override
+    {
+        if (!_isTrackedPool(inputs.id)) {
+            return;
+        }
+
+        address token0Addr;
+        address token1Addr;
+        string memory token0Symbol;
+        string memory token1Symbol;
+
+        // Consider refactoring this logic by following the approach in
+        // https://github.com/duneanalytics/sim-idx-dex-trades/blob/main/listeners/src/UniswapV4.sol
+        try V4_POOL_MANAGER.poolKeys(bytes25(inputs.id)) returns (IUniswapV4PoolManager.PoolKey memory key) {
+            token0Addr = key.currency0;
+            token1Addr = key.currency1;
+        } catch {
+            token0Addr = address(0);
+            token1Addr = address(0);
+        }
+
+        (, token0Symbol) = _readTokenMeta(token0Addr);
+        (, token1Symbol) = _readTokenMeta(token1Addr);
+
+        uint256 priceUsd = 0;
+        if (_isETH(token0Addr, token0Symbol) || _isETH(token1Addr, token1Symbol)) {
+            // ETH
+            priceUsd = _readUsdPrice1e18(ETH_USD_AGGREGATOR);
+        } else if (_isUSDC(token0Addr, token0Symbol) || _isUSDC(token1Addr, token1Symbol)) {
+            // USDC
+            priceUsd = _readUsdPrice1e18(USDC_USD_AGGREGATOR);
+        } else if (_isPlatformToken(token0Addr, token0Symbol) || _isPlatformToken(token1Addr, token1Symbol)) {
+            // Platform Token
+            priceUsd = _readUsdPrice1e18(PLATFORM_TOKEN_AGGREGATOR);
+        } else {
+            priceUsd = 0;
+        }
+
+        SwapExecutedData memory ev;
+        ev.id = inputs.id;
+        ev.transactionHash = ctx.txn.hash();
+        ev.blockHeight = block.number;
+        ev.blockTimestamp = block.timestamp;
+        ev.sender = tx.origin;
+        ev.amount0 = inputs.amount0;
+        ev.amount1 = inputs.amount1;
+        ev.price = priceUsd;
+        ev.sqrtPriceX96 = inputs.sqrtPriceX96;
+        ev.liquidity = inputs.liquidity;
+        ev.tick = inputs.tick;
+        ev.fee = inputs.fee;
+        emit SwapExecuted(ev);
+    }
+
+    function onInitializeEvent(
+        EventContext memory ctx,
+        UniswapV4PoolManager$InitializeEventParams memory inputs
+    ) external override
+    {
+        if (!_isTrackedPool(inputs.id)) { return; }
+
+        address token0Addr = inputs.currency0;
+        address token1Addr = inputs.currency1;
+
+        (uint8 d0, string memory s0) = _readTokenMeta(token0Addr);
+        (uint8 d1, string memory s1) = _readTokenMeta(token1Addr);
+
+        PoolInitializedData memory ev;
+        ev.id = inputs.id;
+        ev.transactionHash = ctx.txn.hash();
+        ev.blockHeight = block.number;
+        ev.blockTimestamp = block.timestamp;
+        ev.token0 = token0Addr;
+        ev.token1 = token1Addr;
+        ev.token0Decimals = d0;
+        ev.token1Decimals = d1;
+        ev.token0Symbol = s0;
+        ev.token1Symbol = s1;
+        emit PoolInitialized(ev);
+    }
+}

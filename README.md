@@ -39,3 +39,50 @@ Ready to start building? Check out our comprehensive guides:
 -   **[Adding ABIs](https://docs.sim.dune.com/idx/cli#sim-abi)** - How to add contract ABIs
 -   **[Writing Listeners](https://docs.sim.dune.com/idx/listener)** - Define your indexing logic
 -   **[CLI Reference](https://docs.sim.dune.com/idx/cli)** - All available commands
+
+## Testing Commands
+
+### Production Contract
+
+#### Init events
+
+```bash
+sim listeners evaluate --chain-id 8453 --start-block 33583935 --end-block 33583945 --listeners UniswapV4SwapListener
+```
+
+#### Swap events
+
+```bash
+sim listeners evaluate --chain-id 8453 --start-block 33929640 --end-block 33929650 --listeners UniswapV4SwapListener
+```
+
+### Development Contract
+
+#### Init events ETH
+
+```bash
+sim listeners evaluate --chain-id 8453 --start-block 34451180 --end-block 34451190 --listeners UniswapV4SwapListener
+```
+
+#### Init events USDC
+
+```bash
+sim listeners evaluate --chain-id 8453 --start-block 34491210 --end-block 34491220 --listeners UniswapV4SwapListener
+```
+
+#### Swap events ETH
+
+```bash
+sim listeners evaluate --chain-id 8453 --start-block 34405070 --end-block 34405080 --listeners UniswapV4SwapListener
+```
+
+```bash
+sim listeners evaluate --chain-id 8453 --start-block 34489250 --end-block 34489260 --listeners UniswapV4SwapListener
+```
+
+#### Swap events USDC
+
+```bash
+sim listeners evaluate --chain-id 8453 --start-block 34491320 --end-block 34491330 --listeners UniswapV4SwapListener
+```
+
