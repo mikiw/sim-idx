@@ -15,6 +15,109 @@ function errorPayload(e: unknown) {
   };
 }
 
+const toHex = (val: unknown): string => {
+  if (val instanceof Uint8Array) {
+    return "0x" + Array.from(val).map((b) => b.toString(16).padStart(2, "0")).join("");
+  }
+  const s = String(val);
+  return s.startsWith("0x") ? s : s;
+};
+
+const fetchLatestBlockHeights = async (client: any): Promise<Map<string, number>> => {
+  const res = await client.execute(sql`
+    SELECT id, MAX(block_height) AS max_block_height
+    FROM swap_executed
+    GROUP BY id;
+  `);
+
+  const rows: any[] = (res as any)?.rows ?? (Array.isArray(res) ? res : []);
+  const map = new Map<string, number>();
+  for (const r of rows) {
+    const poolIdHex = toHex((r as any).id);
+    const maxBh = Number((r as any).max_block_height ?? (r as any).maxBlockHeight ?? 0);
+    if (!Number.isNaN(maxBh)) map.set(poolIdHex, maxBh);
+  }
+  return map;
+};
+
+const detectAndEmitNewSwaps = async (
+  client: any,
+  lastSeen: Map<string, number>,
+  send: (data: unknown) => Promise<void>
+): Promise<void> => {
+  const latest = await fetchLatestBlockHeights(client);
+  for (const [poolId, maxBh] of latest) {
+    const prev = lastSeen.get(poolId) ?? -1;
+    if (maxBh > prev) {
+      await send({ type: "swap", poolId, blockHeight: maxBh });
+      lastSeen.set(poolId, maxBh);
+    }
+  }
+};
+
+// Server-Sent Events handler
+const sseHandler = (clinet: any): Response => {
+  const interval = 5_000;
+  const req = clinet.req.raw as Request;
+  const { readable, writable } = new TransformStream();
+  const writer = writable.getWriter();
+  const encoder = new TextEncoder();
+
+  const send = (data: unknown) => {
+    const payload = `data: ${JSON.stringify(data)}\n\n`;
+    return writer.write(encoder.encode(payload));
+  };
+
+  let closed = false;
+  const onAbort = () => {
+    closed = true;
+    try { writer.close(); } catch {}
+  };
+  req.signal.addEventListener("abort", onAbort);
+
+  (async () => {
+    // last seen block heights
+    const initBlockMap = new Map<string, number>();
+
+    try {
+      const client = db.client(clinet);
+
+      await send({ type: "ready", interval });
+
+      try {
+        const seed = await fetchLatestBlockHeights(client);
+        seed.forEach((v, k) => initBlockMap.set(k, v));
+      } catch (err) {
+        await send({ type: "warn", message: "Failed to seed lastSeen; starting fresh", error: (err as any)?.message ?? String(err) });
+      }
+
+      while (!closed) {
+        try {
+          await detectAndEmitNewSwaps(client, initBlockMap, send);
+          await send({ type: "ping", ts: Date.now() });
+        } catch (loopErr) {
+          await send({ type: "error", message: (loopErr as any)?.message ?? String(loopErr) });
+        }
+
+        await new Promise<void>((r) => setTimeout(r, interval));
+      }
+    } catch {
+    } finally {
+      try { writer.close(); } catch {}
+    }
+  })();
+
+  return new Response(readable, {
+    headers: {
+      "Content-Type": "text/event-stream; charset=utf-8",
+      "Cache-Control": "no-cache, no-transform",
+      "Access-Control-Allow-Origin": "*",
+    },
+  });
+};
+
+app.get("/ws", (c) => sseHandler(c));
+
 app.get("/", async (c) => {
   try {
     const client = db.client(c);
