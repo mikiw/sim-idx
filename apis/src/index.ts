@@ -149,7 +149,7 @@ app.get("/pool", async (c) => {
       .select()
       .from(poolInitialized)
       .orderBy(desc(poolInitialized.blockHeight))
-      .limit(100);
+      .limit(1000);
 
     return Response.json({
       result: result,
@@ -203,7 +203,7 @@ app.get("/swaps/:poolId", async (c) => {
       .from(swapExecuted)
       .where(eq(swapExecuted.id, poolId))
       .orderBy(desc(swapExecuted.blockHeight))
-      .limit(100);
+      .limit(1000);
 
     return Response.json({ result });
   } catch (e) {
@@ -239,6 +239,24 @@ app.get("/debug", async (c) => {
 
     return Response.json({ tables, swapCols, poolCols });
   } catch (e) {
+    return Response.json(errorPayload(e), { status: 500 });
+  }
+});
+
+
+app.get("/block-heights", async (c) => {
+  try {
+    const client = db.client(c);
+    const map = await fetchLatestBlockHeights(client);
+
+    const result = Array.from(map.entries()).map(([poolId, blockHeight]) => ({
+      poolId,
+      blockHeight,
+    }));
+
+    return Response.json({ result });
+  } catch (e) {
+    console.error("Database operation failed:", e);
     return Response.json(errorPayload(e), { status: 500 });
   }
 });
